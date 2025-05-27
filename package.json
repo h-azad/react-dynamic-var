@@ -1,0 +1,49 @@
+{
+  "name": "react-dynamic-var",
+  "version": "1.0.0",
+  "description": "A React component for content-editable text input with variable autocompletion, displaying labels and outputting IDs.",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs",
+    "build:esm": "tsc --module esnext --outDir dist/esm",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react",
+    "autocomplete",
+    "variable",
+    "content-editable",
+    "typescript",
+    "tailwind"
+  ],
+  "author": "Hossain Azad",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^17.0.0 || ^18.0.0",
+    "react-dom": "^17.0.0 || ^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "typescript": "^5.8.3"
+  },
+  "optionalDependencies": {
+    "tailwindcss": "^3.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/h-azad/react-dynamic-var.git"
+  },
+  "bugs": {
+    "url": "https://github.com/h-azad/react-dynamic-var/issues"
+  },
+  "homepage": "https://github.com/h-azad/react-dynamic-var#readme"
+}
