@@ -8,11 +8,13 @@ interface Variable {
 interface VariableInputBoxProps {
   onChange?: (value: string) => void;
   variables: Variable[];
+  defaultValue?: string;
 }
 
 const VariableInputBox = ({
   onChange,
   variables,
+  defaultValue,
 }: VariableInputBoxProps): JSX.Element => {
   const editorRef = useRef<HTMLDivElement>(null);
   const suggestionBoxRef = useRef<HTMLDivElement>(null);
@@ -26,6 +28,15 @@ const VariableInputBox = ({
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+
+    // Set default value if provided
+    if (defaultValue && !editor.innerHTML) {
+      const parsedContent = parseDefaultValue(defaultValue, variables);
+      editor.innerHTML = parsedContent;
+      if (onChange) {
+        onChange(getPlainText(editor));
+      }
+    }
 
     const handleInput = () => {
       const text = editor.innerText;
@@ -60,7 +71,17 @@ const VariableInputBox = ({
 
     editor.addEventListener("input", handleInput);
     return () => editor.removeEventListener("input", handleInput);
-  }, [onChange, variables]);
+  }, [onChange, variables, defaultValue]);
+
+  const parseDefaultValue = (text: string, variables: Variable[]): string => {
+    let result = text;
+    variables.forEach((variable) => {
+      const regex = new RegExp(`\\{\\{${variable.id}\\}\\}`, "g");
+      const span = `<span data-id="${variable.id}" contenteditable="false" class="inline-block bg-blue-200 text-blue-900 font-semibold text-sm px-2.5 py-1 rounded-lg mr-1 shadow-sm hover:bg-blue-300 hover:scale-105 transition-all duration-200 cursor-pointer" title="${variable.label}">{{${variable.label}}}</span>`;
+      result = result.replace(regex, span);
+    });
+    return result;
+  };
 
   const getLastWordBeforeCaret = (editor: HTMLElement) => {
     const sel = window.getSelection();
@@ -105,11 +126,11 @@ const VariableInputBox = ({
     // Create the variable span
     const span = document.createElement("span");
     span.textContent = `{{${variable.label}}}`;
-    span.setAttribute("data-id", variable.id.toString()); // Store id for getPlainText
+    span.setAttribute("data-id", variable.id.toString());
     span.contentEditable = "false";
     span.className =
       "inline-block bg-blue-200 text-blue-900 font-semibold text-sm px-2.5 py-1 rounded-lg mr-1 shadow-sm hover:bg-blue-300 hover:scale-105 transition-all duration-200 cursor-pointer";
-    span.title = variable.label; // Show label as tooltip
+    span.title = variable.label;
 
     // Replace the current text node with the corrected structure
     const newTextBefore = document.createTextNode(prefix + spaceBefore);
@@ -143,9 +164,9 @@ const VariableInputBox = ({
     clone.querySelectorAll("span").forEach((span) => {
       const id = span.getAttribute("data-id");
       if (id) {
-        span.outerHTML = `{{${id}}}`; // Replace span with {{id}}
+        span.outerHTML = `{{${id}}}`;
       } else {
-        span.outerHTML = span.innerText; // Fallback to innerText if no id
+        span.outerHTML = span.innerText;
       }
     });
     return clone.innerText;

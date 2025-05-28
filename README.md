@@ -45,7 +45,50 @@ function App() {
 export default App;
 ```
 
+## Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `variables` | `Array<{ id: number, label: string }>` | Yes | Array of variables for suggestions |
+| `onChange` | `(value: string) => void` | No | Callback fired when content changes |
+| `defaultValue` | `string` | No | Initial value for the editor. Variables should be in `{{id}}` format |
+
 ## Usage Examples
+
+### Basic Usage
+```tsx
+const App = () => {
+  const variables = [
+    { id: 1, label: 'name' },
+    { id: 2, label: 'email' },
+  ];
+
+  return (
+    <VariableInputBox
+      variables={variables}
+      onChange={(value) => console.log('Editor content:', value)}
+    />
+  );
+};
+```
+
+### With Default Value
+```tsx
+const App = () => {
+  const variables = [
+    { id: 1, label: 'name' },
+    { id: 2, label: 'email' },
+  ];
+
+  return (
+    <VariableInputBox
+      variables={variables}
+      defaultValue="Hello {{1}}, your {{2}} is confirmed"
+      onChange={(value) => console.log('Editor content:', value)}
+    />
+  );
+};
+```
 
 ### Variable Suggestions
 1. Type `{{` followed by text to see suggestions
@@ -55,13 +98,6 @@ export default App;
 ### Input/Output Examples
 - Input: `Hello {{name}}, your {{email}} is confirmed`
 - Output: `Hello {{1}}, your {{2}} is confirmed`
-
-## Props
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `variables` | `Array<{ id: number, label: string }>` | Yes | Array of variables for suggestions |
-| `onChange` | `(value: string) => void` | No | Callback fired when content changes |
 
 ## Styling
 
