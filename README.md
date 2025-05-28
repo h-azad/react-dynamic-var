@@ -12,6 +12,8 @@ A React component for content-editable text input with variable autocompletion. 
 - 🔄 Automatic spacing around variables
 - 📦 TypeScript ready with full type definitions
 - 🎨 Styled with Tailwind CSS (customizable)
+- 🎯 Smart variable replacement and deletion
+- ✨ Click variables to edit/replace them
 
 ## Installation
 
@@ -25,7 +27,7 @@ yarn add react-dynamic-var
 
 ```tsx
 import React from 'react';
-import VariableInputBox from 'react-dynamic-var';
+import { VariableInputBox } from 'react-dynamic-var';
 
 const variables = [
   { id: 1, label: 'name' },
@@ -38,11 +40,11 @@ function App() {
     <VariableInputBox
       variables={variables}
       onChange={(value) => console.log('Editor content:', value)}
+      placeholder="Type here with {{variable}}"
+      className="custom-class"
     />
   );
 }
-
-export default App;
 ```
 
 ## Props
@@ -52,57 +54,38 @@ export default App;
 | `variables` | `Array<{ id: number, label: string }>` | Yes | Array of variables for suggestions |
 | `onChange` | `(value: string) => void` | No | Callback fired when content changes |
 | `defaultValue` | `string` | No | Initial value for the editor. Variables should be in `{{id}}` format |
+| `placeholder` | `string` | No | Placeholder text when editor is empty |
+| `className` | `string` | No | Additional CSS classes for the editor |
 
-## Usage Examples
+## Features
 
-### Basic Usage
-```tsx
-const App = () => {
-  const variables = [
-    { id: 1, label: 'name' },
-    { id: 2, label: 'email' },
-  ];
+### Variable Insertion
+- Type `{{` to trigger suggestions
+- Continue typing to filter variables
+- Click or press Enter to insert
+- Variables are automatically wrapped with proper spacing
 
-  return (
-    <VariableInputBox
-      variables={variables}
-      onChange={(value) => console.log('Editor content:', value)}
-    />
-  );
-};
-```
+### Variable Editing
+- Click on any variable tag to edit/replace it
+- The suggestion box will show all available variables
+- Select a new variable to replace the existing one
 
-### With Default Value
-```tsx
-const App = () => {
-  const variables = [
-    { id: 1, label: 'name' },
-    { id: 2, label: 'email' },
-  ];
+### Variable Deletion
+- Use Backspace to delete variables
+- Smart handling of spaces around variables
+- Maintains proper formatting
 
-  return (
-    <VariableInputBox
-      variables={variables}
-      defaultValue="Hello {{1}}, your {{2}} is confirmed"
-      onChange={(value) => console.log('Editor content:', value)}
-    />
-  );
-};
-```
-
-### Variable Suggestions
-1. Type `{{` followed by text to see suggestions
-2. Type `{{na` to filter for variables containing "na"
-3. Click or press Enter to insert the variable
-
-### Input/Output Examples
-- Input: `Hello {{name}}, your {{email}} is confirmed`
-- Output: `Hello {{1}}, your {{2}} is confirmed`
+### Input/Output Format
+- Visual format: `Hello {{name}}, your {{email}} is confirmed`
+- Output format: `Hello {{1}}, your {{2}} is confirmed`
 
 ## Styling
 
 ### With Tailwind CSS
-The component uses Tailwind CSS classes by default. No additional setup needed if your project uses Tailwind.
+The component is styled with Tailwind CSS classes by default:
+- Variable tags use `bg-blue-200`, `text-blue-900`, etc.
+- Hover effects with `hover:bg-blue-300`, `hover:scale-105`
+- Smooth transitions with `transition-all`
 
 ### Without Tailwind CSS
 Add these CSS classes to replicate the default styling:

@@ -1,20 +1,25 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
+import { debounce } from "lodash";
 
-export interface Variable {
+interface Variable {
   id: number;
   label: string;
 }
 
-export interface VariableInputBoxProps {
+interface VariableInputBoxProps {
   onChange?: (value: string) => void;
   variables: Variable[];
   defaultValue?: string;
+  placeholder?: string;
+  className?: string;
 }
 
 const VariableInputBox = ({
   onChange,
   variables,
   defaultValue,
+  placeholder = "Type here with {{variable}}",
+  className = "",
 }: VariableInputBoxProps): JSX.Element => {
   const editorRef = useRef<HTMLDivElement>(null);
   const suggestionBoxRef = useRef<HTMLDivElement>(null);
@@ -24,6 +29,48 @@ const VariableInputBox = ({
     left: 0,
   });
   const [filteredVars, setFilteredVars] = useState<Variable[]>([]);
+  const [selectedVariableId, setSelectedVariableId] = useState<number | null>(
+    null
+  );
+
+  const handleInput = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const text = editor.innerText;
+    const selection = window.getSelection();
+    const range = selection?.getRangeAt(0);
+    if (!range) return;
+
+    const word = getLastWordBeforeCaret(editor);
+    const match = word.match(/\{\{(\w*)$/);
+
+    if (match) {
+      const keyword = match[1];
+      const matchedVars = variables.filter((v) =>
+        v.label.toLowerCase().startsWith(keyword.toLowerCase())
+      );
+      setFilteredVars(matchedVars);
+      const rect = range.getBoundingClientRect();
+      const editorRect = editor.getBoundingClientRect();
+      setSuggestionPosition({
+        top: rect.top - editorRect.top + 20,
+        left: rect.left - editorRect.left,
+      });
+      setShowSuggestions(true);
+      setSelectedVariableId(null);
+    } else {
+      setShowSuggestions(false);
+    }
+
+    if (onChange) {
+      onChange(getPlainText(editor));
+    }
+  }, [onChange, variables]);
+
+  const debouncedHandleInput = useCallback(debounce(handleInput, 100), [
+    handleInput,
+  ]);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -38,30 +85,41 @@ const VariableInputBox = ({
       }
     }
 
-    const handleInput = () => {
-      const text = editor.innerText;
-      const selection = window.getSelection();
-      const range = selection?.getRangeAt(0);
-      if (!range) return;
+    editor.addEventListener("input", debouncedHandleInput);
+    return () => editor.removeEventListener("input", debouncedHandleInput);
+  }, [onChange, variables, defaultValue, debouncedHandleInput]);
 
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      const pastedText = e.clipboardData?.getData("text/plain") || "";
+      const parsedContent = parseDefaultValue(pastedText, variables);
+      document.execCommand("insertHTML", false, parsedContent);
+
+      // Trigger suggestions if pasted text ends with {{keyword
+      const text = editor.innerText;
       const word = getLastWordBeforeCaret(editor);
       const match = word.match(/\{\{(\w*)$/);
-
       if (match) {
         const keyword = match[1];
         const matchedVars = variables.filter((v) =>
           v.label.toLowerCase().startsWith(keyword.toLowerCase())
         );
         setFilteredVars(matchedVars);
-        const rect = range.getBoundingClientRect();
-        const editorRect = editor.getBoundingClientRect();
-        setSuggestionPosition({
-          top: rect.top - editorRect.top + 20,
-          left: rect.left - editorRect.left,
-        });
-        setShowSuggestions(true);
-      } else {
-        setShowSuggestions(false);
+        const selection = window.getSelection();
+        const range = selection?.getRangeAt(0);
+        if (range) {
+          const rect = range.getBoundingClientRect();
+          const editorRect = editor.getBoundingClientRect();
+          setSuggestionPosition({
+            top: rect.top - editorRect.top + 20,
+            left: rect.left - editorRect.left,
+          });
+          setShowSuggestions(true);
+        }
       }
 
       if (onChange) {
@@ -69,9 +127,92 @@ const VariableInputBox = ({
       }
     };
 
-    editor.addEventListener("input", handleInput);
-    return () => editor.removeEventListener("input", handleInput);
-  }, [onChange, variables, defaultValue]);
+    editor.addEventListener("paste", handlePaste);
+    return () => editor.removeEventListener("paste", handlePaste);
+  }, [onChange, variables]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace") {
+        const sel = window.getSelection();
+        if (!sel || !sel.rangeCount) return;
+        const range = sel.getRangeAt(0);
+        const startNode = range.startContainer;
+        const startOffset = range.startOffset;
+
+        // Prevent default if we're deleting a span
+        let shouldPreventDefault = false;
+
+        // Case 1: Caret in a text node
+        if (startNode.nodeType === Node.TEXT_NODE && startNode.parentNode) {
+          const parent = startNode.parentNode;
+          if (!parent) return;
+          const childNodes = Array.from(parent.childNodes);
+          const nodeIndex = childNodes.indexOf(startNode as ChildNode);
+
+          // Check for previous span (e.g., after {{username}})
+          if (startOffset === 0 && nodeIndex > 0) {
+            const prevNode = childNodes[nodeIndex - 1];
+            if (prevNode.nodeName === "SPAN") {
+              shouldPreventDefault = true;
+              parent.removeChild(prevNode);
+            }
+          }
+
+          // Check if at the start of the editor
+          if (startOffset === 0 && nodeIndex === 0 && childNodes.length > 0) {
+            const firstNode = childNodes[0];
+            if (firstNode.nodeName === "SPAN") {
+              shouldPreventDefault = true;
+              parent.removeChild(firstNode);
+            }
+          }
+        }
+
+        // Case 2: Caret at the start of the editor with no text node
+        if (startNode === editor && startOffset === 0) {
+          const childNodes = Array.from(editor.childNodes);
+          if (childNodes.length > 0 && childNodes[0].nodeName === "SPAN") {
+            shouldPreventDefault = true;
+            editor.removeChild(childNodes[0]);
+          }
+        }
+
+        // Case 3: Caret after a span with no text node in between (e.g., {{username}}{{email}})
+        if (startNode.nodeName === "SPAN" && startNode.parentNode) {
+          shouldPreventDefault = true;
+          const span = startNode;
+          const parent = span.parentNode;
+          if (!parent) return;
+          const childNodes = Array.from(parent.childNodes);
+          const nodeIndex = childNodes.indexOf(span as ChildNode);
+          if (nodeIndex > 0) {
+            const prevNode = childNodes[nodeIndex - 1];
+            if (prevNode.nodeName === "SPAN") {
+              parent.removeChild(prevNode);
+            } else {
+              parent.removeChild(span);
+            }
+          } else {
+            parent.removeChild(span);
+          }
+        }
+
+        if (shouldPreventDefault) {
+          e.preventDefault();
+          if (onChange) {
+            onChange(getPlainText(editor));
+          }
+        }
+      }
+    };
+
+    editor.addEventListener("keydown", handleKeyDown);
+    return () => editor.removeEventListener("keydown", handleKeyDown);
+  }, [onChange]);
 
   const parseDefaultValue = (text: string, variables: Variable[]): string => {
     let result = text;
@@ -99,9 +240,29 @@ const VariableInputBox = ({
     if (!sel || !sel.rangeCount) return;
 
     const range = sel.getRangeAt(0);
-    const node = sel.focusNode;
+    let node = sel.focusNode;
 
-    if (!node || node.nodeType !== Node.TEXT_NODE) return;
+    if (selectedVariableId !== null) {
+      // Replace existing variable
+      const span = editor.querySelector(
+        `span[data-id="${selectedVariableId}"]`
+      );
+      if (span && span.parentNode) {
+        node = span.parentNode;
+        range.selectNode(span);
+        range.deleteContents();
+      }
+      setSelectedVariableId(null);
+    }
+
+    if (!node || node.nodeType !== Node.TEXT_NODE) {
+      // If not in a text node, insert at the end of the editor
+      const textNode = document.createTextNode("");
+      editor.appendChild(textNode);
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, 0);
+      node = textNode;
+    }
 
     const textNode = node as Text;
     const fullText = textNode.textContent || "";
@@ -113,11 +274,7 @@ const VariableInputBox = ({
 
     // Match the last `{{` and text following it
     const match = beforeCaret.match(/(.*?)(\{\{[\w]*)$/);
-    if (!match) return;
-
-    const prefix = match[1]; // text before {{
-
-    // Determine if spaces are needed before and after
+    const prefix = match ? match[1] : beforeCaret;
     const hasSpaceBefore = prefix.length === 0 || prefix.endsWith(" ");
     const hasSpaceAfter = afterCaret.length === 0 || afterCaret.startsWith(" ");
     const spaceBefore = hasSpaceBefore ? "" : " ";
@@ -131,6 +288,24 @@ const VariableInputBox = ({
     span.className =
       "inline-block bg-blue-200 text-blue-900 font-semibold text-sm px-2.5 py-1 rounded-lg mr-1 shadow-sm hover:bg-blue-300 hover:scale-105 transition-all duration-200 cursor-pointer";
     span.title = variable.label;
+
+    // Add click handler for deletion/replacement
+    span.addEventListener("click", () => {
+      setSelectedVariableId(variable.id);
+      setFilteredVars(variables);
+      setShowSuggestions(true);
+      const range = document.createRange();
+      range.selectNode(span);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      const rect = range.getBoundingClientRect();
+      const editorRect = editor.getBoundingClientRect();
+      setSuggestionPosition({
+        top: rect.top - editorRect.top + 20,
+        left: rect.left - editorRect.left,
+      });
+    });
 
     // Replace the current text node with the corrected structure
     const newTextBefore = document.createTextNode(prefix + spaceBefore);
@@ -177,8 +352,8 @@ const VariableInputBox = ({
       <div
         ref={editorRef}
         contentEditable
-        className="border border-gray-300 rounded px-3 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-blue-400"
-        data-placeholder="Type here with {{variable}}"
+        className={`border border-gray-300 rounded px-3 py-2 min-h-[40px] focus:outline-none focus:ring-2 focus:ring-blue-400 ${className}`}
+        data-placeholder={placeholder}
       ></div>
 
       {showSuggestions && filteredVars.length > 0 && (
@@ -209,3 +384,4 @@ const VariableInputBox = ({
 };
 
 export default VariableInputBox;
+export type { Variable, VariableInputBoxProps };
