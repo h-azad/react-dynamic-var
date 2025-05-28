@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from "react";
 
-interface Variable {
+export interface Variable {
   id: number;
   label: string;
 }
 
-interface VariableInputBoxProps {
+export interface VariableInputBoxProps {
   onChange?: (value: string) => void;
   variables: Variable[];
   defaultValue?: string;

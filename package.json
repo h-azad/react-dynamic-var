@@ -1,14 +1,22 @@
 {
   "name": "react-dynamic-var",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A React component for content-editable text input with variable autocompletion, displaying labels and outputting IDs.",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "npm run build:cjs && npm run build:esm",
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs",
     "build:esm": "tsc --module esnext --outDir dist/esm",
+    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
